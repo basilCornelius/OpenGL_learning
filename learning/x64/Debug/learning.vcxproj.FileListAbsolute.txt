@@ -1,0 +1,2 @@
+C:\Users\web_d\Documents\!MY\c++\repositoty\learning\x64\Debug\learning.exe
+C:\Users\web_d\Documents\!MY\c++\repositoty\learning\x64\Debug\learning.pdb
