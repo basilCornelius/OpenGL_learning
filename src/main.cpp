@@ -1,7 +1,7 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-
 #include <iostream>
+#include "Shader.h"
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow* window);
@@ -11,16 +11,23 @@ const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
 
 const char* vertexShaderSource = "#version 330 core\n"
-"layout (location = 0) in vec3 aPos;\n"
+"layout (location = 0) in vec3 aPos;\n" // позиция атрибута, содержащего переменные координат, устанавливается в 0
+"layout (location = 1) in vec3 aColor;\n" // позиция атрибута, содержащего переменные цвета, устанавливается в 1
+
+"out vec3 ourColor;\n" //// на выходе – значение цвета, передаваемое во фрагментный шейдер
+
 "void main()\n"
 "{\n"
-"   gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);\n"
+"   gl_Position = vec4(aPos, 1.0);\n"
+"   ourColor = aColor;\n"
 "}\0";
+
 const char* fragmentShaderSource = "#version 330 core\n"
 "out vec4 FragColor;\n"
+"in vec3 ourColor;\n" //цвет на входе из вершинного шейдера
 "void main()\n"
 "{\n"
-"   FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);\n"
+"   FragColor = vec4(ourColor, 1.0);\n"
 "}\n\0";
 
 int main() {
@@ -67,67 +74,53 @@ int main() {
     }
 
     // Фрагментный шейдер
-    int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
-    glCompileShader(fragmentShader);
-
+    int fragmentShader1 = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragmentShader1, 1, &fragmentShaderSource, NULL);
+    glCompileShader(fragmentShader1);
     // Проверка на наличие ошибок компилирования фрагментного шейдера
-    glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
-    if (!success)     {
-        glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
+    glGetShaderiv(fragmentShader1, GL_COMPILE_STATUS, &success);
+    if (!success) {
+        glGetShaderInfoLog(fragmentShader1, 512, NULL, infoLog);
         std::cout << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n" << infoLog << std::endl;
     }
 
     // Связывание шейдеров
+    //первая программа
     int shaderProgram = glCreateProgram();
     glAttachShader(shaderProgram, vertexShader);
-    glAttachShader(shaderProgram, fragmentShader);
+    glAttachShader(shaderProgram, fragmentShader1);
     glLinkProgram(shaderProgram);
-
     // Проверка на наличие ошибок компилирования связывания шейдеров
     glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
     if (!success) {
         glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
         std::cout << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n" << infoLog << std::endl;
     }
+
     glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
+    glDeleteShader(fragmentShader1);
 
     // Указывание вершин (и буферов) и настройка вершинных атрибутов
-    float vertices[] = {
-         0.5f,  0.5f, 0.0f, // дополнительная для прямоугольника
-         0.5f, -0.5f, 0.0f, // левая вершина
-        -0.5f, -0.5f, 0.0f, // правая вершина
-        -0.5f,  0.5f, 0.0f  // верхняя вершина   
-    };
-
-    unsigned int indices[] = {
-        0, 1, 3,
-        1, 2, 3  
-    };
-
+    float vertices1[] = {
+        //координаты       //цвета
+         -0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f,//первая вершина
+          0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 0.0f, // вторая вершина
+          0.0f,  0.5f, 0.0f, 0.0f, 0.0f, 1.0f, }; // третья вершина
+    
     unsigned int VBO, VAO;
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
 
-
-
-    // Сначала связываем объект вершинного массива, затем связываем и устанавливаем вершинный буфер(ы), и затем конфигурируем вершинный атрибут(ы)
-    glBindVertexArray(VAO);
-
+    // связываем массивы и буфера
+    glBindVertexArray(VAO); //
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices1), vertices1, GL_STATIC_DRAW);
+    //координатный атрибут
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
-
-    // Обратите внимание, что данное действие разрешено, вызов glVertexAttribPointer() зарегистрировал VBO как привязанный вершинный буферный объект для вершинного атрибута, так что после этого мы можем спокойно выполнить отвязку
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    unsigned int EBO;//создал и привязал буфер индексов
-    glGenBuffers(1, &EBO);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+    //цветовой атрибут
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3*sizeof(float)));
+    glEnableVertexAttribArray(1);
 
     // Вы можете отменить привязку VАО после этого, чтобы другие вызовы VАО случайно не изменили этот VAO (но подобное довольно редко случается).
     // Модификация других VAO требует вызов glBindVertexArray(), поэтому мы обычно не снимаем привязку VAO (или VBO), когда это не требуется напрямую
@@ -137,20 +130,20 @@ int main() {
     // Раскомментируйте следующую строку для отрисовки полигонов в режиме каркаса
     // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
+    glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
     // Цикл рендеринга
     while (!glfwWindowShouldClose(window))     {
         // Обработка ввода
         processInput(window);
 
-        // Рендеринг
-        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+        // Рендерингprocess
         glClear(GL_COLOR_BUFFER_BIT);
 
-        // Рисуем наш первый треугольник
+        //первый треугольник
         glUseProgram(shaderProgram);
         glBindVertexArray(VAO); // поскольку у нас есть только один VАО, то нет необходимости связывать его каждый раз (но мы сделаем это, чтобы всё было немного организованнее)
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-        // glBindVertexArray(0); // не нужно каждый раз его отвязывать
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+
 
         // glfw: обмен содержимым front- и back- буферов. Отслеживание событий ввода\вывода (была ли нажата/отпущена кнопка, перемещен курсор мыши и т.п.)
         glfwSwapBuffers(window);
@@ -158,8 +151,8 @@ int main() {
     }
 
     // Опционально: освобождаем все ресурсы, как только они выполнили свое предназначение
-    glDeleteVertexArrays(1, &VAO);
-    glDeleteBuffers(1, &VBO);
+    glDeleteVertexArrays(2, &VAO);
+    glDeleteBuffers(2, &VBO);
 
     // glfw: завершение, освобождение всех ранее задействованных GLFW-ресурсов
     glfwTerminate();
